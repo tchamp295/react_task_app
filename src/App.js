@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
-  Button,
   Container,
   Text,
   Title,
@@ -9,167 +8,137 @@ import {
   Group,
   Card,
   ActionIcon,
+  useMantineColorScheme,
+  Flex,
   Stack,
-  Box,
-  Tooltip,
-  Paper,
-  useMantineTheme,
   MantineProvider,
+  Button,
+  Tooltip,
 } from "@mantine/core";
-import {
-  MoonStars,
-  Sun,
-  Trash,
-  Edit,
-  ListDetails,
-  CirclePlus,
-} from "tabler-icons-react";
-import { useColorScheme, useLocalStorage, useHotkeys } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
+import { useHotkeys } from "@mantine/hooks";
+import { MoonStars, Sun, Trash, Plus, Edit, Check } from "tabler-icons-react";
 
-export default function EnhancedTaskApp() {
+export default function TaskMaster() {
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const [tasks, setTasks] = useState([]);
-  const [opened, setOpened] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
 
-  const theme = useMantineTheme();
-  const preferredColorScheme = useColorScheme();
-  const [colorScheme, setColorScheme] = useLocalStorage({
-    key: "mantine-color-scheme",
-    defaultValue: preferredColorScheme || "light",
-    getInitialValueInEffect: true,
-  });
+  // Form state
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskSummary, setTaskSummary] = useState("");
+  const [titleError, setTitleError] = useState("");
 
-  const taskTitle = useRef(null);
-  const taskSummary = useRef(null);
+  useHotkeys([
+    ["mod+J", () => toggleColorScheme()],
+    ["mod+N", () => openModal()],
+  ]);
 
-  const toggleColorScheme = () =>
-    setColorScheme(colorScheme === "dark" ? "light" : "dark");
-
-  useHotkeys([["mod+J", () => toggleColorScheme()]]);
-
-  function createOrUpdateTask() {
-    const title = taskTitle.current?.value.trim();
-    const summary = taskSummary.current?.value.trim();
-
-    if (!title) {
-      notifications.show({
-        title: "Error",
-        message: "Task title cannot be empty",
-        color: "red",
-      });
-      return;
+  const loadTasks = useCallback(() => {
+    const savedTasks = localStorage.getItem("tasks");
+    if (savedTasks) {
+      setTasks(JSON.parse(savedTasks));
     }
+  }, []);
 
-    if (editingTask !== null) {
-      const updatedTasks = tasks.map((task, index) =>
-        index === editingTask ? { title, summary } : task
-      );
-      setTasks(updatedTasks);
-      saveTasks(updatedTasks);
-      notifications.show({
-        title: "Task Updated",
-        message: `Task "${title}" has been updated`,
-        color: "green",
-      });
-    } else {
-      const newTasks = [...tasks, { title, summary, createdAt: new Date() }];
-      setTasks(newTasks);
-      saveTasks(newTasks);
-      notifications.show({
-        title: "Task Created",
-        message: `New task "${title}" added`,
-        color: "blue",
-      });
-    }
-
-    setOpened(false);
-    setEditingTask(null);
-    if (taskTitle.current) taskTitle.current.value = "";
-    if (taskSummary.current) taskSummary.current.value = "";
-  }
-
-  function deleteTask(index) {
-    const taskToDelete = tasks[index];
-    const updatedTasks = tasks.filter((_, i) => i !== index);
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-
-    notifications.show({
-      title: "Task Deleted",
-      message: `Task "${taskToDelete.title}" has been removed`,
-      color: "red",
-    });
-  }
-
-  function editTask(index) {
-    setEditingTask(index);
-    const task = tasks[index];
-
-    if (taskTitle.current) taskTitle.current.value = task.title;
-    if (taskSummary.current) taskSummary.current.value = task.summary || "";
-
-    setOpened(true);
-  }
-
-  function loadTasks() {
-    const loadedTasks = localStorage.getItem("tasks");
-    const parsedTasks = JSON.parse(loadedTasks || "[]");
-    setTasks(parsedTasks);
-  }
-
-  function saveTasks(tasks) {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }
+  const saveTasks = useCallback((updatedTasks) => {
+    localStorage.setItem("tasks", JSON.stringify(updatedTasks));
+  }, []);
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [loadTasks]);
+
+  const openModal = (task = null) => {
+    if (task) {
+      setEditingTask(task);
+      setTaskTitle(task.title);
+      setTaskSummary(task.summary || "");
+    } else {
+      setEditingTask(null);
+      setTaskTitle("");
+      setTaskSummary("");
+    }
+    setTitleError("");
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    // Validate title
+    if (!taskTitle.trim()) {
+      setTitleError("Task title is required");
+      return;
+    }
+
+    const newTask = {
+      id: editingTask?.id || Date.now(),
+      title: taskTitle,
+      summary: taskSummary,
+      createdAt: editingTask?.createdAt || new Date().toLocaleString(),
+    };
+
+    const updatedTasks = editingTask
+      ? tasks.map((task) => (task.id === editingTask.id ? newTask : task))
+      : [...tasks, newTask];
+
+    setTasks(updatedTasks);
+    saveTasks(updatedTasks);
+    setIsModalOpen(false);
+
+    // Reset form
+    setTaskTitle("");
+    setTaskSummary("");
+    setEditingTask(null);
+  };
+
+  const deleteTask = (id) => {
+    const updatedTasks = tasks.filter((task) => task.id !== id);
+    setTasks(updatedTasks);
+    saveTasks(updatedTasks);
+  };
 
   return (
     <MantineProvider
-      theme={{ colorScheme, defaultRadius: "md", primaryColor: "indigo" }}
+      theme={{
+        colorScheme,
+        defaultRadius: "lg",
+        primaryColor: "indigo",
+      }}
       withGlobalStyles
       withNormalizeCSS
     >
-      <Container
-        size="sm"
-        py="xl"
-        sx={{
-          background:
-            colorScheme === "dark"
-              ? theme.colors.dark[8]
-              : theme.colors.gray[0],
-          minHeight: "100vh",
-        }}
-      >
-        <Paper shadow="md" p="lg" radius="md">
-          <Group position="apart" align="center" mb="xl">
+      <Container size="sm" py={20}>
+        <Flex
+          direction="column"
+          gap="md"
+          style={{
+            height: "calc(100vh - 40px)",
+            maxWidth: 600,
+            margin: "0 auto",
+          }}
+        >
+          <Flex justify="space-between" align="center">
             <Title
+              variant="gradient"
+              gradient={{ from: "indigo", to: "cyan", deg: 45 }}
               order={1}
-              sx={(theme) => ({
-                fontFamily: `Greycliff CF, ${theme.fontFamily}`,
-                fontWeight: 900,
-                backgroundImage: theme.fn.linearGradient(
-                  45,
-                  theme.colors.indigo[6],
-                  theme.colors.cyan[6]
-                ),
-                backgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              })}
+              style={{ fontWeight: 900 }}
             >
-              <ListDetails style={{ marginRight: "10px" }} /> Task Manager
+              Task Master
             </Title>
             <Tooltip
               label={`Switch to ${
-                colorScheme === "dark" ? "Light" : "Dark"
-              } Mode`}
+                colorScheme === "dark" ? "light" : "dark"
+              } mode`}
             >
               <ActionIcon
                 variant="outline"
                 color={colorScheme === "dark" ? "yellow" : "blue"}
-                onClick={() => toggleColorScheme()}
+                onClick={toggleColorScheme}
+                size="lg"
+                radius="xl"
               >
                 {colorScheme === "dark" ? (
                   <Sun size={20} />
@@ -178,79 +147,137 @@ export default function EnhancedTaskApp() {
                 )}
               </ActionIcon>
             </Tooltip>
-          </Group>
+          </Flex>
 
-          <Modal
-            opened={opened}
-            onClose={() => setOpened(false)}
-            title={
-              <Title order={3}>
-                {editingTask !== null ? "Edit Task" : "Create New Task"}
-              </Title>
-            }
-            centered
-          >
-            <Stack spacing="md">
-              <TextInput
-                ref={taskTitle}
-                label="Task Title"
-                placeholder="Enter task title"
-                required
-              />
-              <TextInput
-                ref={taskSummary}
-                label="Task Description"
-                placeholder="Optional task description"
-              />
-              <Group position="right">
-                <Button color="gray" onClick={() => setOpened(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={createOrUpdateTask}
-                  leftIcon={<CirclePlus size={16} />}
-                >
-                  {editingTask !== null ? "Update Task" : "Create Task"}
-                </Button>
-              </Group>
-            </Stack>
-          </Modal>
-
-          {tasks.length === 0 ? (
-            <Box style={{ textAlign: "center" }}>
-              <Text color="dimmed">
-                No tasks yet. Click "New Task" to get started!
-              </Text>
-            </Box>
-          ) : (
-            <Stack>
-              {tasks.map((task, index) => (
-                <Card key={index} withBorder>
-                  <Group position="apart">
-                    <Stack spacing={0}>
-                      <Text weight={600}>{task.title}</Text>
-                      <Text color="dimmed" size="sm">
-                        {task.summary || "No description"}
+          <Stack gap="md" style={{ flex: 1, overflowY: "auto" }}>
+            {tasks.length > 0 ? (
+              tasks.map((task) => (
+                <Card key={task.id} shadow="sm" radius="lg" withBorder>
+                  <Flex justify="space-between" align="center">
+                    <Stack gap="xs" style={{ flex: 1 }}>
+                      <Text fw={600} size="lg">
+                        {task.title}
+                      </Text>
+                      {task.summary && (
+                        <Text c="dimmed" size="sm">
+                          {task.summary}
+                        </Text>
+                      )}
+                      <Text c="gray.6" size="xs">
+                        Created: {task.createdAt}
                       </Text>
                     </Stack>
                     <Group>
-                      <ActionIcon color="blue" onClick={() => editTask(index)}>
-                        <Edit size={16} />
-                      </ActionIcon>
-                      <ActionIcon color="red" onClick={() => deleteTask(index)}>
-                        <Trash size={16} />
-                      </ActionIcon>
+                      <Tooltip label="Edit Task">
+                        <ActionIcon
+                          variant="light"
+                          color="blue"
+                          onClick={() => openModal(task)}
+                          size="lg"
+                          radius="md"
+                        >
+                          <Edit size={20} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="Delete Task">
+                        <ActionIcon
+                          variant="light"
+                          color="red"
+                          onClick={() => deleteTask(task.id)}
+                          size="lg"
+                          radius="md"
+                        >
+                          <Trash size={20} />
+                        </ActionIcon>
+                      </Tooltip>
                     </Group>
-                  </Group>
+                  </Flex>
                 </Card>
-              ))}
-            </Stack>
-          )}
+              ))
+            ) : (
+              <Text
+                c="dimmed"
+                ta="center"
+                style={{
+                  alignSelf: "center",
+                  marginTop: "auto",
+                  marginBottom: "auto",
+                }}
+              >
+                No tasks yet. Let's get started!
+              </Text>
+            )}
+          </Stack>
 
-          <Button fullWidth mt="md" onClick={() => setOpened(true)}>
-            <CirclePlus size={16} /> New Task
+          <Button
+            fullWidth
+            size="md"
+            variant="gradient"
+            gradient={{ from: "indigo", to: "cyan" }}
+            leftIcon={<Plus />}
+            onClick={() => openModal()}
+          >
+            Add New Task
           </Button>
-        </Paper>
+
+          <Modal
+            opened={isModalOpen}
+            onClose={() => {
+              setIsModalOpen(false);
+              setEditingTask(null);
+              setTaskTitle("");
+              setTaskSummary("");
+              setTitleError("");
+            }}
+            title={editingTask ? "Edit Task" : "Create New Task"}
+            centered
+            overlayProps={{
+              backgroundOpacity: 0.55,
+              blur: 3,
+            }}
+          >
+            <form onSubmit={handleSubmit}>
+              <Stack gap="md">
+                <TextInput
+                  value={taskTitle}
+                  onChange={(e) => {
+                    setTaskTitle(e.currentTarget.value);
+                    setTitleError("");
+                  }}
+                  label="Task Title"
+                  placeholder="Enter task title"
+                  required
+                  radius="md"
+                  error={titleError}
+                />
+                <TextInput
+                  value={taskSummary}
+                  onChange={(e) => setTaskSummary(e.currentTarget.value)}
+                  label="Task Summary"
+                  placeholder="Optional task description"
+                  radius="md"
+                />
+                <Group position="right" mt="md">
+                  <Button
+                    variant="light"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setEditingTask(null);
+                      setTaskTitle("");
+                      setTaskSummary("");
+                      setTitleError("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" leftIcon={<Check size={18} />}>
+                    {editingTask ? "Update Task" : "Create Task"}
+                  </Button>
+                </Group>
+              </Stack>
+            </form>
+          </Modal>
+        </Flex>
       </Container>
     </MantineProvider>
   );
