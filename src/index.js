@@ -1,11 +1,20 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
+import React, { useState } from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import { MantineProvider } from "@mantine/core";
 
-import {
-	MantineProvider,
-	ColorSchemeProvider,
-	ColorScheme,
-} from '@mantine/core';
+function Root() {
+  const [colorScheme, setColorScheme] = useState("light");
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  // Function to toggle between light and dark modes
+  const toggleColorScheme = () =>
+    setColorScheme((prev) => (prev === "dark" ? "light" : "dark"));
+
+  return (
+    <MantineProvider theme={{ colorScheme }} withGlobalStyles withNormalizeCSS>
+      <App />
+    </MantineProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
