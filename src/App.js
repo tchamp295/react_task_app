@@ -288,7 +288,7 @@ export default function TaskMaster() {
             size="md"
             variant="gradient"
             gradient={{ from: "indigo", to: "cyan" }}
-            leftIcon={<Plus />}
+            leftSection={<Plus />} // Replace 'leftIcon' with 'leftSection'
             onClick={() => openModal()}
           >
             Add New Task
