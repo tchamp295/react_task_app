@@ -146,7 +146,7 @@ export default function TaskMaster() {
           direction="column"
           gap="md"
           style={{
-            height: "calc(100vh - 40px)",
+            height: "calc(100vh - 120px)", // Reduced from 40px to 120px
             maxWidth: 600,
             margin: "0 auto",
           }}
@@ -288,13 +288,12 @@ export default function TaskMaster() {
             size="md"
             variant="gradient"
             gradient={{ from: "indigo", to: "cyan" }}
-            leftSection={<Plus />} // Replace 'leftIcon' with 'leftSection'
+            leftSection={<Plus />}
             onClick={() => openModal()}
           >
             Add New Task
           </Button>
 
-          {/* Rest of the code remains the same */}
           <Modal
             opened={isModalOpen}
             onClose={() => {
@@ -312,7 +311,6 @@ export default function TaskMaster() {
               blur: 3,
             }}
           >
-            {/* Modal content remains the same */}
             <form onSubmit={handleSubmit}>
               <Stack gap="md">
                 <TextInput
