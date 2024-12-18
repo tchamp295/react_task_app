@@ -237,8 +237,8 @@ export default function TaskMaster() {
                                 variant="light"
                                 size="sm"
                               >
-                                {task.priority.charAt(0).toUpperCase() +
-                                  task.priority.slice(1)}
+                                {task.priority?.charAt(0).toUpperCase() +
+                                  task.priority?.slice(1) || "Unknown"}
                               </Badge>
                             </Flex>
                             {task.summary && (
